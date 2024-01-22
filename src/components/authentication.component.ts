@@ -1,75 +1,55 @@
 import { Request, Response } from "express";
-import fs from 'fs/promises';
-const userFilePath = 'users.json';
+import UserModel from "../models/user.model";
+import sendEmail from "../configs/email.config";
+import EmailTemplate from "../templets/email.template";
 
-interface User {
-    name?: string;
-    username?: string;
-    password?: string;
-}
-
-const signup = async (req: Request, res: Response) => {
+const signUp = async (req: Request, res: Response) => {
     try {
-        let { name, username, password } = req.body;
-        if (!name) return res.status(400).send({ error: true, message: "name is required", response: null });
-        if (!username) return res.status(400).send({ error: true, message: "username is required", response: null });
+        const { fname, lname, email, password } = req.body;
+        if (!fname) return res.status(400).send({ error: true, message: "fname is required", response: null });
+        if (!lname) return res.status(400).send({ error: true, message: "lname is required", response: null });
+        if (!email) return res.status(400).send({ error: true, message: "email is required", response: null });
         if (!password) return res.status(400).send({ error: true, message: "password is required", response: null });
-        const users = await readUsersFile();
-        if (users.find(user => user.username === username)) {
-            return res.status(400).send({ error: true, message: 'Username already exists.', response: null });
-        }
 
-        users.push({ username, password });
-        await writeUsersFile(users);
+        let alreadyExists = await UserModel.findOne({ email });
+        if (alreadyExists) return res.status(400).send({ error: true, message: "email already exists", response: null });
+
+        const data = await UserModel.create({ fname, lname, email, password });
 
         return res.status(200).send({
             error: false,
-            message: "user successfully created",
-            response: users
-        });
-    } catch (error) {
-        console.error(error);
+            message: "sign up successfully",
+            response: ""
+        })
+    } catch (error: any) {
+        return res.status(500).send({
+            error: true,
+            message: error.message,
+            response: null
+        })
     }
 }
 
-const readUsersFile = async (): Promise<User[]> => {
+const signIn = async (req: Request, res: Response) => {
     try {
-        const data = await fs.readFile(userFilePath, 'utf-8');
-        console.log(data, "DATA");
-        return JSON.parse(data) as User[];
-    } catch (error) {
-        if (error) {
-            return [];
-        }
-        throw error;
-    }
-};
-
-async function writeUsersFile(users: User[]): Promise<void> {
-    await fs.writeFile(userFilePath, JSON.stringify(users, null, 2), 'utf-8');
-}
-
-const login = async (req: Request, res: Response) => {
-    try {
-        let { username, password } = req.body;
-        if (!username) return res.status(400).send({ error: true, message: "username is requires", response: null });
-        if (!password) return res.status(400).send({ error: true, message: "password is requires", response: null });
-
-        const users = await readUsersFile();
-        const user = users.find(u => u.username === username);
-
-        if (!user || user.password !== password) {
-            return res.status(401).json({ error: 'Invalid username or password.' });
-        }
-
+        const { email, password } = req.body;
+        if (!email) return res.status(400).send({ error: false, message: "email is required", response: null });
+        if (!password) return res.status(400).send({ error: false, message: "password is required", response: null });
+        const data = await UserModel.findOne({ email, password });
+        const userName = `${data?.fname} ${data?.lname}`
+        sendEmail(data?.email, "Congratulations!", EmailTemplate(userName));
         return res.status(200).send({
             error: false,
             message: "login successfully",
-            response: user
-        });
-    } catch (error) {
-        console.error(error);
+            response: data
+        })
+    } catch (error: any) {
+        res.status(500).send({
+            error: true,
+            message: error.message,
+            response: null
+        })
     }
 }
 
-export { signup, login };
+export { signUp, signIn }
