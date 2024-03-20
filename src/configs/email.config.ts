@@ -2,16 +2,16 @@ import nodemailer from 'nodemailer';
 
 const sendEmail = async (to: any, subject: any, text: any) => {
     const send = nodemailer.createTransport({
-        host: "smtp.gmail.com",
-        port: 587,
+        service: process.env.EMAIL_SERVICE,
+        host: process.env.EMAIL_HOST,
         auth: {
-            user: "108a73e898e88c",
-            pass: "ea52008e55d6d1"
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
         }
     });
 
     const option = {
-        from: `<dilip.bijoriya@emorphis.in>`,
+        from: `<process.env.EMAIL_USER>`,
         to: to,
         subject: subject,
         html: text
@@ -25,5 +25,6 @@ const sendEmail = async (to: any, subject: any, text: any) => {
         }
     });
 }
+
 
 export default sendEmail;

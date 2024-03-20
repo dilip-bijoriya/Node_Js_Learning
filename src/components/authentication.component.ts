@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import UserModel from "../models/user.model";
 import sendEmail from "../configs/email.config";
 import EmailTemplate from "../templets/email.template";
+import cron from 'node-cron';
+import async from 'async';
 
 const signUp = async (req: Request, res: Response) => {
     try {
@@ -37,7 +39,27 @@ const signIn = async (req: Request, res: Response) => {
         if (!password) return res.status(400).send({ error: false, message: "password is required", response: null });
         const data = await UserModel.findOne({ email, password });
         const userName = `${data?.fname} ${data?.lname}`
-        sendEmail(data?.email, "Congratulations!", EmailTemplate(userName));
+        // sendEmail(data?.email, "Congratulations!", EmailTemplate(userName));
+
+        cron.schedule('* * * * *', async () => {
+            try {
+                const email = Array.from({ length: 20 }).map(() => {
+                    return new Promise<void>((resolve, reject) => {
+                        emailQueue.push({ to: data?.email as any, subject: "Congratulations!", text: EmailTemplate(userName) }, (error) => {
+                            if (error) {
+                                reject(error);
+                            } else {
+                                resolve();
+                            }
+                        });
+                    });
+                });
+                await Promise.all(email);
+            } catch (error) {
+                console.error(error);
+            }
+        });
+
         return res.status(200).send({
             error: false,
             message: "login successfully",
@@ -51,5 +73,17 @@ const signIn = async (req: Request, res: Response) => {
         })
     }
 }
+
+const emailQueue = async.queue(async (data: { to: string; subject: string; text: string }, callback) => {
+    try {
+        const { to, subject, text } = data;
+        await sendEmail(to, subject, text);
+        callback();
+    } catch (error: any) {
+        console.error(error);
+        callback(error);
+    }
+}, 20);
+
 
 export { signUp, signIn }
